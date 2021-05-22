@@ -1,76 +1,53 @@
 package com.rarToZip.RarToZip.service;
 
-import javafx.scene.shape.Path;
-import org.apache.tomcat.util.http.fileupload.IOUtils;
+import com.rarToZip.RarToZip.myDictinary.Dictionary;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import java.io.*;
-import java.nio.file.Files;
-import java.nio.file.StandardCopyOption;
-import java.nio.file.StandardOpenOption;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.CompletableFuture;
+import java.util.*;
 import java.util.zip.ZipEntry;
-import java.util.zip.ZipFile;
-import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
 
 @Service
 public class ZipService {
     private Logger log = LoggerFactory.getLogger(ZipService.class);
-
-    @Async("asyncExecutor")
-    //public InputStream filesToZip(Map<String, InputStream> args) throws IOException {
-    public CompletableFuture<InputStream> filesToZip(Map<String, InputStream> args) throws IOException{
+    private Set<String> file_handlers = new HashSet<>();
+   //@Async("asyncExecutor")
+    public void putFiles(Dictionary<String,InputStream> args, String id) throws IOException {
         log.info("Method thread id : "+Thread.currentThread().getId());
-        Set<String> fname = args.keySet();
-        FileOutputStream fos = new FileOutputStream("multiCompressed.zip");
+       //log.info("Map length: "+args.size());
+        final String filename = id + ".zip";
+        Set<String> fname = args.getKeySet();
+        FileOutputStream fos = new FileOutputStream(filename);
         ZipOutputStream zipOut = new ZipOutputStream(fos);
         //int length=0;
         for (String key : fname) {
             log.info("foreach loop");
-            //File fileToZip = new File(key);
-            //FileInputStream fis = new FileInputStream(fileToZip);
             ZipEntry zipEntry = new ZipEntry(new File(key).getName());//(fileToZip.getName());
             zipOut.putNextEntry(zipEntry);
-
-            byte[] bytes = args.get(key).readAllBytes();
-
-            // while ((length = args.get(key).readAllBytes().length) >= 0) {
+            InputStream x = (InputStream)args.getItemByKey(key);
+            byte[] bytes = x.readAllBytes();
             zipOut.write(bytes, 0, bytes.length);
-            //length+=args.get(key).readAllBytes().length;
             zipOut.closeEntry();
-           /* while((length = fis.read(bytes)) >= 0) {
-                zipOut.write(bytes, 0, length);
-            }*/
-            // fis.close();
-            // }
         }
         zipOut.close();
         fos.close();
-        InputStream zip = new FileInputStream("multiCompressed.zip");
+        file_handlers.add(filename);
+        log.info("Put zip file, set size :"+file_handlers.size());
+    }
+    public InputStream getZipFile(String id) throws Exception {
+        final String filename = id + ".zip";
+        if(!(file_handlers.contains(filename))){
+            log.info("Get zip file, set size :"+file_handlers.size());
+            throw new Exception("There is no file with this id");
+        }
+        InputStream zip = new FileInputStream(filename);
         InputStream zz = new ByteArrayInputStream(zip.readAllBytes());
         zip.close();
-        //return zz;
-        return CompletableFuture.completedFuture(zz);
+        return zz;
+    }
+    public void removeTemporaryFile(String id){
+       new File((id+".zip")).delete();
     }
 }
-/*
-private void addFolderToZip(File folder, ZipOutputStream zip, String baseName) throws IOException {
-    File[] files = folder.listFiles();
-    for (File file : files) {
-        if (file.isDirectory()) {
-            addFolderToZip(file, zip, baseName);
-        } else {
-            String name = file.getAbsolutePath().substring(baseName.length());
-            ZipEntry zipEntry = new ZipEntry(name);
-            zip.putNextEntry(zipEntry);
-            IOUtils.copy(new FileInputStream(file), zip);
-            zip.closeEntry();
-        }
-    }
-}
- */
